@@ -133,3 +133,41 @@ test('pages / usingComponents could be defined with non-extname', async t => {
 
   t.pass()
 })
+
+test('pages / usingComponents could be defined with non-extname with MinaEntryPlugin', async t => {
+  const { compile, mfs } = compiler({
+    context: resolveRelative('fixtures/entry'),
+    entry: './app-non-extname.mina',
+    output: {
+      filename: '[name]',
+    },
+    plugins: [new MinaEntryPlugin()],
+  })
+  const stats = await compile()
+
+  t.deepEqual(stats.compilation.errors, [], stats.compilation.errors[0])
+
+  // console.log(mfs.data)
+  // console.log(mfs.data['page-c.js'].toString())
+
+  t.true(mfs.existsSync('/app-non-extname.js'))
+  t.true(mfs.existsSync('/app-non-extname.json'))
+  t.deepEqual(JSON.parse(mfs.readFileSync('/app-non-extname.json', 'utf8')), {
+    pages: ['page-c', 'page-d'],
+  })
+  t.true(
+    mfs.readFileSync('/page-c.js', 'utf8').includes("'Page C'") &&
+      mfs.readFileSync('/page-c.js', 'utf8').includes("'Hi'") &&
+      mfs
+        .readFileSync('/page-c.js', 'utf8')
+        .includes(
+          'module.exports = __webpack_require__.p + "assets/logo.97017d.png";'
+        )
+  )
+  t.is(
+    mfs.readFileSync('/page-d.wxml', 'utf8'),
+    '<view>Page D<image src="./assets/logo.97017d.png" /></view>'
+  )
+
+  t.pass()
+})

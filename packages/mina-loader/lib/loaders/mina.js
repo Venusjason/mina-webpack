@@ -18,7 +18,15 @@ const {
   LOADERS,
 } = require('../constants')
 
-module.exports = function(source) {
+function getParts(loaderContext, request) {
+  return helpers.loadModule
+    .call(loaderContext, `!!${parserLoaderPath}!${request}`)
+    .then(source => {
+      return loaderContext.exec(source, request)
+    })
+}
+
+module.exports = function() {
   this.cacheable()
 
   const done = this.async()
@@ -34,10 +42,8 @@ module.exports = function(source) {
     webpackOptions
   )
 
-  const url = loaderUtils.getRemainingRequest(this)
-  const parsedUrl = `!!${parserLoaderPath}!${url}`
-
-  const loadModule = helpers.loadModule.bind(this)
+  const originalRequest = loaderUtils.getRemainingRequest(this)
+  const filePath = this.resourcePath
 
   const getLoaderOf = (type, options, attributes = {}) => {
     let loader = LOADERS[type](options) || ''
@@ -62,21 +68,20 @@ module.exports = function(source) {
     return loader
   }
 
-  loadModule(parsedUrl)
-    .then(source => {
-      let parts = this.exec(source, parsedUrl)
-
+  getParts(this, originalRequest)
+    .then(parts => {
       // compute output
       let output = TYPES_FOR_OUTPUT.reduce((result, type) => {
         if (!parts[type]) {
           return result
         }
+
         // content can be defined either in a separate file or inline
         let loader = getLoaderOf(type, options, parts[type].attributes)
         debug('load modules', { result, type, loader })
         let request =
           '!!' +
-          [loader, `${selectorLoaderPath}?type=${type}!${url}`]
+          [loader, `${selectorLoaderPath}?type=${type}!${originalRequest}`]
             .filter(Boolean)
             .join('!')
         return `${result};require(${loaderUtils.stringifyRequest(
@@ -99,21 +104,22 @@ module.exports = function(source) {
               ) {
                 return Promise.resolve()
               }
+
               let dirname = compose(
                 ensurePosix,
                 helpers.toSafeOutputPath,
                 path.dirname
-              )(path.relative(this.rootContext, url))
+              )(path.relative(this.rootContext, filePath))
               let request =
                 '!!' +
                 [
                   `${fileLoaderPath}?name=${dirname}/[name].${EXTNAMES[type]}`,
                   getLoaderOf(type, options, parts[type].attributes),
-                  `${selectorLoaderPath}?type=${type}!${url}`,
+                  `${selectorLoaderPath}?type=${type}!${originalRequest}`,
                 ]
                   .filter(Boolean)
                   .join('!')
-              return loadModule(request)
+              return helpers.loadModule.call(this, request)
             })
           )
           .then(() => done(null, output))
