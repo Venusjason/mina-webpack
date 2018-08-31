@@ -134,21 +134,30 @@ test('pages / usingComponents could be defined with non-extname', async t => {
   t.pass()
 })
 
-test('pages / usingComponents could be defined with non-extname with MinaEntryPlugin', async t => {
+test.only('pages / usingComponents could be defined with virtual extname with MinaEntryPlugin', async t => {
   const { compile, mfs } = compiler({
     context: resolveRelative('fixtures/entry'),
     entry: './app-non-extname.mina',
     output: {
       filename: '[name]',
     },
+    // module: {
+    //   rules: [
+    //     {
+    //       test: /\.virtual$/,
+    //       use: {
+    //         loader: require.resolve('../../mina-entry-webpack-plugin/virtual-mina-loader.js'),
+    //       },
+    //     },
+    //   ],
+    // },
     plugins: [new MinaEntryPlugin()],
   })
   const stats = await compile()
 
   t.deepEqual(stats.compilation.errors, [], stats.compilation.errors[0])
 
-  // console.log(mfs.data)
-  // console.log(mfs.data['page-c.js'].toString())
+  console.log(mfs.data)
 
   t.true(mfs.existsSync('/app-non-extname.js'))
   t.true(mfs.existsSync('/app-non-extname.json'))

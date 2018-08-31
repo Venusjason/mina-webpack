@@ -12,7 +12,7 @@ const compose = require('compose-function')
 
 const { toSafeOutputPath, getResourceUrlFromRequest } = require('./helpers')
 
-const RESOLVE_EXTENSIONS = ['.js', '.wxml', 'json', 'wxss']
+const RESOLVE_EXTENSIONS = ['.js', '.wxml', '.json', '.wxss']
 
 function isAbsoluteUrl(url) {
   return !!url.startsWith('/')

@@ -1,0 +1,13 @@
+<config>
+{
+  "components": true
+}
+</config>
+
+<template>
+  <view>Component A</view>
+</template>
+
+<script>
+Component({})
+</script>

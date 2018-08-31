@@ -1,7 +1,8 @@
 <config>
 {
   "pages": [
-    "page-e"
+    "page-c.virtual",
+    "page-d.virtual"
   ]
 }
 </config>
