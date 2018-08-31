@@ -70,6 +70,7 @@ module.exports = function() {
 
   getParts(this, originalRequest)
     .then(parts => {
+      console.log(originalRequest, parts)
       // compute output
       let output = TYPES_FOR_OUTPUT.reduce((result, type) => {
         if (!parts[type]) {

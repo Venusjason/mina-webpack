@@ -10,7 +10,7 @@ const pMap = require('p-map')
 
 const helpers = require('../helpers')
 
-const RESOLVE_EXTENSIONS = ['.js', '.wxml', 'json', 'wxss']
+const RESOLVE_EXTENSIONS = ['.js', '.wxml', '.json', '.wxss']
 
 function stripExt(path) {
   return replaceExt(path, '')
