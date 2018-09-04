@@ -3,6 +3,16 @@ const fs = require('fs-extra')
 const replaceExt = require('replace-ext')
 const pProps = require('p-props')
 
+let JavascriptGenerator, JavascriptParser
+try {
+  JavascriptGenerator = require('webpack/lib/JavascriptGenerator')
+  JavascriptParser = require('webpack/lib/Parser')
+} catch (error) {
+  if (error.code !== 'MODULE_NOT_FOUND') {
+    throw error
+  }
+}
+
 const EXTNAMES = {
   template: 'wxml',
   style: 'wxss',
@@ -29,6 +39,22 @@ const template = (parts = {}) => {
 
 module.exports = function() {
   this.cacheable()
+
+  /**
+   * forked from https://github.com/lingui/js-lingui/commit/f804335ce502cca65bdcab72f4b0021711fbf3b9
+   * see:
+   * - https://github.com/webpack/webpack/issues/7057#issuecomment-381883220
+   * - https://github.com/webpack/webpack/issues/6572#issuecomment-374987270
+   */
+  if (
+    JavascriptGenerator &&
+    JavascriptParser &&
+    this._module.type !== 'javascript/auto'
+  ) {
+    this._module.type = 'javascript/auto'
+    this._module.generator = new JavascriptGenerator()
+    this._module.parser = new JavascriptParser()
+  }
 
   const done = this.async()
 

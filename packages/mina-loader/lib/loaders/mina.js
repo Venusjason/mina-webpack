@@ -13,17 +13,49 @@ const parserLoaderPath = require.resolve('./parser')
 const helpers = require('../helpers')
 const {
   EXTNAMES,
-  TYPES_FOR_FILE_LOADER,
-  TYPES_FOR_OUTPUT,
+  TAGS_FOR_FILE_LOADER,
+  TAGS_FOR_OUTPUT,
   LOADERS,
 } = require('../constants')
 
-function getParts(loaderContext, request) {
+function getBlocks(loaderContext, request) {
+  request = `!${parserLoaderPath}!${request}`
   return helpers.loadModule
-    .call(loaderContext, `!!${parserLoaderPath}!${request}`)
-    .then(source => {
-      return loaderContext.exec(source, request)
-    })
+    .call(loaderContext, request)
+    .then(source => loaderContext.exec(source, request))
+}
+
+const getLoaders = (loaderContext, tag, options, attributes = {}) => {
+  let loader = LOADERS[tag](options) || ''
+  let lang = attributes.lang
+
+  /**
+   * Because we can't add built-in loaders if we satisfy the [inline url rule](https://webpack.js.org/concepts/loaders/#inline) (especially by overriding the original rule with an `!` in the header), at this point when the users are using the `src` attribute, we can't automatically add built-in loaders for them and instead they need to manually set the rules themselves.
+   */
+  if (attributes.src) {
+    return ''
+  }
+
+  // append custom loader
+  let custom = lang
+    ? options.languages[lang] || `${lang}-loader`
+    : options.loaders[tag] || ''
+  if (custom) {
+    custom = helpers.stringifyLoaders(
+      helpers.parseLoaders(custom).map(object => {
+        return merge({}, object, {
+          loader: resolveFrom(loaderContext.rootContext, object.loader),
+        })
+      })
+    )
+    loader = loader ? `${loader}!${custom}` : custom
+  }
+
+  return loader
+}
+
+function select(originalRequest, tag) {
+  return `${selectorLoaderPath}?tag=${tag}!${originalRequest}`
 }
 
 module.exports = function() {
@@ -34,6 +66,7 @@ module.exports = function() {
   const options = merge(
     {},
     {
+      select: '',
       loaders: {},
       languages: {},
       publicPath: helpers.getPublicPath(webpackOptions, this),
@@ -45,44 +78,35 @@ module.exports = function() {
   const originalRequest = loaderUtils.getRemainingRequest(this)
   const filePath = this.resourcePath
 
-  const getLoaderOf = (type, options, attributes = {}) => {
-    let loader = LOADERS[type](options) || ''
-    let lang = attributes.lang
-    if (attributes.src) {
-      return ''
-    }
-    // append custom loader
-    let custom = lang
-      ? options.languages[lang] || `${lang}-loader`
-      : options.loaders[type] || ''
-    if (custom) {
-      custom = helpers.stringifyLoaders(
-        helpers.parseLoaders(custom).map(object => {
-          return merge({}, object, {
-            loader: resolveFrom(this.rootContext, object.loader),
-          })
-        })
-      )
-      loader = loader ? `${loader}!${custom}` : custom
-    }
-    return loader
-  }
+  getBlocks(this, originalRequest)
+    .then(blocks => {
+      if (options.select) {
+        let tag = options.select
+        let request =
+          '!!' +
+          [
+            getLoaders(this, tag, options, blocks[tag].attributes),
+            select(originalRequest, tag),
+          ]
+            .filter(Boolean)
+            .join('!')
+        return helpers.loadModule
+          .call(this, request)
+          .then(source => done(null, source))
+      }
 
-  getParts(this, originalRequest)
-    .then(parts => {
-      console.log(originalRequest, parts)
       // compute output
-      let output = TYPES_FOR_OUTPUT.reduce((result, type) => {
-        if (!parts[type]) {
+      let output = TAGS_FOR_OUTPUT.reduce((result, tag) => {
+        if (!blocks[tag]) {
           return result
         }
 
-        // content can be defined either in a separate file or inline
-        let loader = getLoaderOf(type, options, parts[type].attributes)
-        debug('load modules', { result, type, loader })
         let request =
           '!!' +
-          [loader, `${selectorLoaderPath}?type=${type}!${originalRequest}`]
+          [
+            getLoaders(this, tag, options, blocks[tag].attributes),
+            select(originalRequest, tag),
+          ]
             .filter(Boolean)
             .join('!')
         return `${result};require(${loaderUtils.stringifyRequest(
@@ -95,12 +119,12 @@ module.exports = function() {
         Promise
           // emit files
           .all(
-            TYPES_FOR_FILE_LOADER.map(type => {
+            TAGS_FOR_FILE_LOADER.map(tag => {
               if (
-                !parts[type] ||
+                !blocks[tag] ||
                 !(
-                  parts[type].content ||
-                  (parts[type].attributes && parts[type].attributes.src)
+                  blocks[tag].content ||
+                  (blocks[tag].attributes && blocks[tag].attributes.src)
                 )
               ) {
                 return Promise.resolve()
@@ -114,9 +138,9 @@ module.exports = function() {
               let request =
                 '!!' +
                 [
-                  `${fileLoaderPath}?name=${dirname}/[name].${EXTNAMES[type]}`,
-                  getLoaderOf(type, options, parts[type].attributes),
-                  `${selectorLoaderPath}?type=${type}!${originalRequest}`,
+                  `${fileLoaderPath}?name=${dirname}/[name]${EXTNAMES[tag]}`,
+                  getLoaders(this, tag, options, blocks[tag].attributes),
+                  select(originalRequest, tag),
                 ]
                   .filter(Boolean)
                   .join('!')

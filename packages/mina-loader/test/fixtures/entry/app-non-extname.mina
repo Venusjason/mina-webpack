@@ -1,7 +1,10 @@
 <config>
 {
   "pages": [
-    "page-e"
+    "page-c",
+    "page-d",
+    "page-e",
+    "page-f"
   ]
 }
 </config>

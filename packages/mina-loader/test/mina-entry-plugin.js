@@ -162,7 +162,7 @@ test.only('pages / usingComponents could be defined with virtual extname with Mi
   t.true(mfs.existsSync('/app-non-extname.js'))
   t.true(mfs.existsSync('/app-non-extname.json'))
   t.deepEqual(JSON.parse(mfs.readFileSync('/app-non-extname.json', 'utf8')), {
-    pages: ['page-c', 'page-d'],
+    pages: ['page-c', 'page-d', 'page-e', 'page-f'],
   })
   t.true(
     mfs.readFileSync('/page-c.js', 'utf8').includes("'Page C'") &&
@@ -177,6 +177,13 @@ test.only('pages / usingComponents could be defined with virtual extname with Mi
     mfs.readFileSync('/page-d.wxml', 'utf8'),
     '<view>Page D<image src="./assets/logo.97017d.png" /></view>'
   )
+  t.deepEqual(JSON.parse(mfs.readFileSync('/page-e.json', 'utf8')), {
+    usingComponents: {
+      a: '/component-a',
+      b: '/component-b',
+    },
+  })
+  t.is(mfs.readFileSync('/page-f.wxss', 'utf8'), 'view {\n  display: none;\n}')
 
   t.pass()
 })
